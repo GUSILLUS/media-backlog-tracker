@@ -6,7 +6,7 @@ import authRoutes from "./modules/auth/auth.routes";
 // and maps each incoming HTTP request to a function that returns a response.
 // `express` is a thin helper that does the request-routing for us.
 
-const app = express();
+export const app = express();
 
 // Lets the server read JSON request bodies (we'll need this from Day 3 on).
 app.use(express.json());
