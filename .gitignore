@@ -3,3 +3,6 @@ dist/
 .env
 
 /src/generated/prisma
+
+# OS junk
+.DS_Store

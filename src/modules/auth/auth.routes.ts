@@ -1,58 +1,56 @@
 import express from "express";
 import AuthService from "./auth.service";
+import { AUTH_COOKIE_NAME, authCookieOptions } from "./auth.constants";
 import { requireAuth } from "./auth.middleware";
+import { asyncHandler } from "../../middleware/asyncHandler";
 import { UserRepository } from "../../db";
-
+import { MissingCredentialsError, UserNotFoundError } from "./auth.errors";
 
 const router = express.Router();
 
-router.post("/register", async (req, res) => {
-  try {
-    if (!req.body.email || !req.body.password) {
-      res.status(400).json({ error: "Email and password are required" });
-      return;
-    }
-    
-    const isEmailInUse = await AuthService.isEmailUsed(req.body.email);
-
-    if (isEmailInUse) {
-      res.status(409).json({ error: "Email is already in use" });
-      return;
+router.post(
+  "/register",
+  asyncHandler(async (req, res) => {
+    if (!req.body?.email || !req.body?.password) {
+      throw new MissingCredentialsError();
     }
 
     const user = await AuthService.registerUser(req.body);
     res.status(201).json({ user });
-  } catch (error) {
-    if (error instanceof Error ) {
-      res.status(400).json({ error: error.message });
-      return;
+  }),
+);
+
+router.post(
+  "/login",
+  asyncHandler(async (req, res) => {
+    if (!req.body?.email || !req.body?.password) {
+      throw new MissingCredentialsError();
     }
 
-    res.status(400).json({ error: "An error occurred while registering" });
-  }
-});
-
-router.post("/login", async (req, res) => {
-  try {
     const { user, token } = await AuthService.loginUser(req.body);
-    res.status(200).json({ user, token });
-  } catch (error) {
-    if (error instanceof Error && error.message) {
-      res.status(401).json({ error: "Invalid credentials" });
-      return;
+
+    res.cookie(AUTH_COOKIE_NAME, token, authCookieOptions);
+    res.status(200).json({ user });
+  }),
+);
+
+router.post("/logout", (_req, res) => {
+  // clearCookie must use the same options (minus maxAge) as when it was set.
+  res.clearCookie(AUTH_COOKIE_NAME, authCookieOptions);
+  res.status(200).json({ ok: true });
+});
+
+router.get(
+  "/me",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = await UserRepository.findUserById(req.userId!);
+    if (!user) {
+      throw new UserNotFoundError();
     }
 
-    res.status(400).json({ error: "An error occurred while logging in" });
-  }
-});
-
-router.get("/me", requireAuth, async (req, res) => {
-  const user = await UserRepository.findUserById(req.userId!);
-  if (!user) return res.status(404).json({ error: "User not found" });
-
-  const securedUser = AuthService.secureUser(user);
-
-  res.status(200).json({ user: securedUser });
-});
+    res.status(200).json({ user: AuthService.secureUser(user) });
+  }),
+);
 
 export default router;
