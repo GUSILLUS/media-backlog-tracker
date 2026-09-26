@@ -1,6 +1,6 @@
 import express from "express";
 import AuthService from "./auth.service";
-import { AUTH_COOKIE_NAME, authCookieOptions } from "./auth.constants";
+import { AUTH_COOKIE_NAME, authCookieOptions, authLimiter } from "./auth.constants";
 import { requireAuth } from "./auth.middleware";
 import { asyncHandler } from "../../middleware/asyncHandler";
 import { UserRepository } from "../../db";
@@ -10,6 +10,7 @@ const router = express.Router();
 
 router.post(
   "/register",
+  authLimiter,
   asyncHandler(async (req, res) => {
     if (!req.body?.email || !req.body?.password) {
       throw new MissingCredentialsError();
@@ -22,6 +23,7 @@ router.post(
 
 router.post(
   "/login",
+  authLimiter,
   asyncHandler(async (req, res) => {
     if (!req.body?.email || !req.body?.password) {
       throw new MissingCredentialsError();

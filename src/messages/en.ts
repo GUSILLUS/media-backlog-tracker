@@ -17,4 +17,5 @@ export const en: Record<string, string> = {
   NOT_FOUND: "Not found",
   CONFLICT: "Conflict",
   INTERNAL: "Something went wrong",
+  TOO_MANY_REQUESTS: "Too many requests from this IP, please try again after 15 minutes",
 };
