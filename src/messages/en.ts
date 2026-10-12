@@ -8,8 +8,9 @@ export const en: Record<string, string> = {
   AUTH_EMAIL_IN_USE: "Email is already in use",
   AUTH_USER_NOT_FOUND: "User not found",
   AUTH_UNAUTHENTICATED: "You must be signed in",
-  AUTH_INVALID_TOKEN: "Invalid or expired token",
-
+  AUTH_INVALID_SESSION: "Invalid or expired session",
+  AUTH_SESSION_CREATION_FAILED: "Failed to create session",
+  AUTH_SESSION_REVOCATION_FAILED: "Failed to revoke session",
   // generic fallbacks
   BAD_REQUEST: "Bad request",
   UNAUTHORIZED: "Unauthorized",

@@ -1,14 +1,17 @@
 import bcrypt from "bcryptjs";
-import jwt, { JwtPayload } from "jsonwebtoken";
-import { TOKEN_TTL_SECONDS } from "./auth.constants";
-import { UserModel } from "../../generated/prisma/models";
-import { UserRepository } from "../../db";
+import { SESSION_TTL_MS } from "./auth.constants";
+import { SessionRepository, UserRepository } from "../../db";
 import { LoginUserPayload, RegisterUserPayload } from "./auth.types";
 import {
   EmailInUseError,
   InvalidCredentialsError,
-  InvalidTokenError,
+  InvalidSessionError,
 } from "./auth.errors";
+import { SessionOutput } from "../../types/session";
+import { generateSessionToken, hashSessionToken } from "./session.crypto";
+import { UserOutputWithPassword } from "../../types/user";
+import { Prisma } from "../../generated/prisma/client";
+
 
 const hashPassword = async (plainPassword: string) => await bcrypt.hash(plainPassword, 10);
 const validatePassword = async (plainPassword: string, hashedPassword: string) =>
@@ -19,33 +22,35 @@ const validatePassword = async (plainPassword: string, hashedPassword: string) =
 // by timing. Computed once at startup.
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync("unused-placeholder-password", 10);
 
-const signToken = async (payload: { id: string }): Promise<string> =>
-  await jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: TOKEN_TTL_SECONDS });
-
-const secureUser = (user: UserModel) => {
+const secureUser = (user: UserOutputWithPassword) => {
   const { password, ...userWithoutPassword } = user;
   return { ...userWithoutPassword };
 };
 
-const verifyToken = async (token: string): Promise<JwtPayload> => {
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
-    if (typeof decoded === "string") {
-      throw new InvalidTokenError();
-    }
-    return decoded;
-  } catch {
-    throw new InvalidTokenError();
+const verifySession = async (rawSessionToken: string): Promise<SessionOutput> => {
+  const sessionTokenHash = hashSessionToken(rawSessionToken);
+
+  const session = await SessionRepository.findValidSessionByTokenHash(sessionTokenHash);
+
+  if (session === null) {
+    throw new InvalidSessionError();
   }
+
+  return session;
 };
 
-const isEmailUsed = async (email: string) => {
-  const existingUser = await UserRepository.findUserByEmail(email);
-  return !!existingUser;
-};
+const revokeSession = async (sessionId: string): Promise<void> => {
+  const deletedCount = await SessionRepository.deleteSessionById(sessionId);
+
+  if (deletedCount.count === 0) {
+    throw new InvalidSessionError();
+  }
+}
 
 const registerUser = async (registerPayload: RegisterUserPayload) => {
+  try {
   const existingUser = await UserRepository.findUserByEmail(registerPayload.email);
+
   if (existingUser) {
     throw new EmailInUseError();
   }
@@ -54,11 +59,19 @@ const registerUser = async (registerPayload: RegisterUserPayload) => {
   const newUser = { ...registerPayload, password: passwordHash };
   const createdUser = await UserRepository.createUser(newUser);
 
-  return secureUser(createdUser);
+  return createdUser;
+} catch (error) {
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  ) {
+    throw new EmailInUseError();
+  }
+}
 };
 
 const loginUser = async (loginPayload: LoginUserPayload) => {
-  const user = await UserRepository.findUserByEmail(loginPayload.email);
+  const user = await UserRepository.findUserByEmailWithPassword(loginPayload.email);
 
   // Always run a compare (dummy hash when no user) for constant-ish timing.
   const isPasswordValid = await validatePassword(
@@ -71,16 +84,23 @@ const loginUser = async (loginPayload: LoginUserPayload) => {
     throw new InvalidCredentialsError();
   }
 
-  const token = await signToken({ id: user.id });
-  return { user: secureUser(user), token };
+  const sessionRawToken = generateSessionToken();
+
+  const session = await SessionRepository.createSession({
+    userId: user.id,
+    tokenHash: hashSessionToken(sessionRawToken),
+    expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+  });
+
+  return { user: secureUser(user), sessionRawToken };
 };
 
 const AuthService = {
   registerUser,
   loginUser,
-  verifyToken,
-  isEmailUsed,
+  verifySession,
   secureUser,
+  revokeSession
 };
 
 export default AuthService;

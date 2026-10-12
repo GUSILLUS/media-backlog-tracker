@@ -38,16 +38,29 @@ model Media {
   lastEpisode Int?
   favorite    Boolean  @default(false)
   imageUrl    String?
-  user        User     @relation(fields: [userId], references: [id])
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId      String
+
   @@index([userId, status, favorite])
 }
 
 model User {
-  id           String      @id @default(cuid())
-  email        String      @unique
-  password     String
-  name         String
-  avatarUrl    String?
-  media        Media[]
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  name      String
+  avatarUrl String?
+  media     Media[]
+  sessions  Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
 }

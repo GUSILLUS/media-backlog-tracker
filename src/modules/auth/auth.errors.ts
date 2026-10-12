@@ -32,8 +32,20 @@ export class UnauthenticatedError extends UnauthorizedError {
     super("AUTH_UNAUTHENTICATED");
   }
 }
-export class InvalidTokenError extends UnauthorizedError {
+export class InvalidSessionError extends UnauthorizedError {
   constructor() {
-    super("AUTH_INVALID_TOKEN");
+    super("AUTH_INVALID_SESSION");
+  }
+}
+
+export class SessionCreationError extends UnauthorizedError {
+  constructor() {
+    super("AUTH_SESSION_CREATION_FAILED");
+  }
+}
+
+export class SessionRevocationError extends NotFoundError {
+  constructor() {
+    super("AUTH_SESSION_REVOCATION_FAILED");
   }
 }

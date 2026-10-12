@@ -13,6 +13,13 @@ Node + TypeScript, **Express** (learn the "why" before frameworks like NestJS),
 **PostgreSQL** (free hosted: Neon or Railway), **Prisma** as the ORM, **JWT** for
 auth. Frontend: whatever React setup you're fastest in — keep it minimal.
 
+> **Plan changed during Day 4 (2026-10-12):** auth pivoted from stateless JWT to
+> **opaque server-side sessions** (a `Session` table + an httpOnly cookie holding a
+> random handle, SHA-256 at rest). Reason: a JWT can't be revoked, so "log out" and
+> "log out everywhere" are not implementable without server state. Everything below
+> that says "JWT" should be read as "session cookie". The JWT detour was not wasted —
+> see the checkpoint questions in PROGRESS.md.
+
 **The data model in one line:** a `User` has many `MediaItem`s; each item has a
 **category** (GAME / MOVIE / ANIME / CARTOON), a **status** (PLANNING / IN_PROGRESS /
 COMPLETED / DROPPED), and a rating. That's all you need to hit every backend concept.
